@@ -19,18 +19,6 @@ The initial analytics targets for this project are:
 
 This project requires **one terminal** to run all components sequentially (Docker PostgreSQL runs detached in the background).
 
-## Current Status
-
-The repository now includes the initial extraction layer for DummyJSON:
-
-- paginated extraction for `carts`, `users`, and `products`
-- retries with exponential backoff for transient API failures
-- raw JSON snapshot persistence under `data/raw/`
-- a small runner script for local extraction
-- pandas-based deterministic synthetic enrichment for `order_timestamp`, `signup_date`, `payment_details`, and `shipping_cost`
-- a pandas-based synthetic order generator that scales the working dataset to 10,000 rows
-- a pandas-based analytics transformation stage that builds `customer_analytics` and `order_analytics`
-- **Django ORM models and management commands** for PostgreSQL persistence with upsert logic
 
 ## Quick Start
 
