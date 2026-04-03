@@ -25,6 +25,7 @@ The repository now includes the initial extraction layer for DummyJSON:
 - raw JSON snapshot persistence under `data/raw/`
 - a small runner script for local extraction
 - pandas-based deterministic synthetic enrichment for `order_timestamp`, `signup_date`, `payment_details`, and `shipping_cost`
+- a pandas-based synthetic order generator that scales the working dataset to 10,000 rows
 
 ## Project Structure
 
@@ -49,23 +50,27 @@ The repository now includes the initial extraction layer for DummyJSON:
 │   ├── loaders/
 │   ├── orchestration/
 │   │   ├── enrich_dummyjson_orders.py
-│   │   └── extract_dummyjson.py
+│   │   ├── extract_dummyjson.py
+│   │   └── generate_dummyjson_synthetic_orders.py
 │   ├── schemas/
 │   ├── transformers/
-│   │   └── dummyjson_enrichment.py
+│   │   ├── dummyjson_enrichment.py
+│   │   └── dummyjson_synthetic_orders.py
 │   └── utils/
 ├── logs/
 ├── requirements/
 │   └── base.txt
 ├── scripts/
 │   ├── enrich_dummyjson_orders.py
-│   └── extract_dummyjson.py
+│   ├── extract_dummyjson.py
+│   └── generate_dummyjson_synthetic_orders.py
 └── tests/
     ├── fixtures/
     ├── integration/
     └── unit/
         ├── test_dummyjson_enrichment.py
-        └── test_dummyjson_extractor.py
+        ├── test_dummyjson_extractor.py
+        └── test_dummyjson_synthetic_orders.py
 ```
 
 ## Folder Overview
@@ -139,10 +144,18 @@ This reads the latest raw snapshots, applies the deterministic synthetic enrichm
 .venv/bin/python scripts/enrich_dummyjson_orders.py
 ```
 
-### 6. Run the current unit tests
+### 6. Generate the 10,000-row synthetic order dataset
+
+This uses the latest raw snapshots as the source of truth, builds the enriched working orders, and then scales them into a deterministic synthetic dataset for larger-volume analytics work.
 
 ```bash
-.venv/bin/python -m unittest tests.unit.test_dummyjson_extractor tests.unit.test_dummyjson_enrichment
+.venv/bin/python scripts/generate_dummyjson_synthetic_orders.py --target-rows 10000
+```
+
+### 7. Run the current unit tests
+
+```bash
+.venv/bin/python -m unittest tests.unit.test_dummyjson_extractor tests.unit.test_dummyjson_enrichment tests.unit.test_dummyjson_synthetic_orders
 ```
 
 ## Extraction Usage
@@ -165,6 +178,22 @@ This transform step keeps the raw API response unchanged and adds synthetic fiel
 - `shipping_cost`
 - all transformations are executed with pandas DataFrames before the final JSON snapshot is written
 
+## Synthetic 10000-Row Generation
+
+The synthetic generation step:
+
+- starts from the latest raw DummyJSON snapshots
+- builds the enriched order dataset with pandas
+- scales the order rows to a target count such as `10000`
+- keeps the raw dataset unchanged
+- writes the generated dataset separately inside `data/interim/orders/`
+
+Run it with:
+
+```bash
+.venv/bin/python scripts/generate_dummyjson_synthetic_orders.py --target-rows 10000
+```
+
 ## Current Workflow
 
 For the current stage of the project, the normal command order is:
@@ -172,6 +201,7 @@ For the current stage of the project, the normal command order is:
 ```bash
 .venv/bin/python scripts/extract_dummyjson.py
 .venv/bin/python scripts/enrich_dummyjson_orders.py
+.venv/bin/python scripts/generate_dummyjson_synthetic_orders.py --target-rows 10000
 ```
 
 This means:
@@ -179,3 +209,4 @@ This means:
 - the raw DummyJSON source is fetched fresh on every extraction run
 - the raw API snapshots remain unchanged in `data/raw/`
 - the pandas transform creates the enriched working dataset separately in `data/interim/orders/`
+- the synthetic generation stage creates the larger 10,000-row dataset separately in `data/interim/orders/`
