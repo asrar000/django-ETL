@@ -26,6 +26,7 @@ The repository now includes the initial extraction layer for DummyJSON:
 - a small runner script for local extraction
 - pandas-based deterministic synthetic enrichment for `order_timestamp`, `signup_date`, `payment_details`, and `shipping_cost`
 - a pandas-based synthetic order generator that scales the working dataset to 10,000 rows
+- a pandas-based analytics transformation stage that builds `customer_analytics` and `order_analytics`
 
 ## Project Structure
 
@@ -51,9 +52,11 @@ The repository now includes the initial extraction layer for DummyJSON:
 │   ├── orchestration/
 │   │   ├── enrich_dummyjson_orders.py
 │   │   ├── extract_dummyjson.py
-│   │   └── generate_dummyjson_synthetic_orders.py
+│   │   ├── generate_dummyjson_synthetic_orders.py
+│   │   └── transform_dummyjson_analytics.py
 │   ├── schemas/
 │   ├── transformers/
+│   │   ├── dummyjson_analytics.py
 │   │   ├── dummyjson_enrichment.py
 │   │   └── dummyjson_synthetic_orders.py
 │   └── utils/
@@ -63,11 +66,13 @@ The repository now includes the initial extraction layer for DummyJSON:
 ├── scripts/
 │   ├── enrich_dummyjson_orders.py
 │   ├── extract_dummyjson.py
-│   └── generate_dummyjson_synthetic_orders.py
+│   ├── generate_dummyjson_synthetic_orders.py
+│   └── transform_dummyjson_analytics.py
 └── tests/
     ├── fixtures/
     ├── integration/
     └── unit/
+        ├── test_dummyjson_analytics.py
         ├── test_dummyjson_enrichment.py
         ├── test_dummyjson_extractor.py
         └── test_dummyjson_synthetic_orders.py
@@ -155,7 +160,15 @@ This uses the latest raw snapshots as the source of truth, builds the enriched w
 ### 7. Run the current unit tests
 
 ```bash
-.venv/bin/python -m unittest tests.unit.test_dummyjson_extractor tests.unit.test_dummyjson_enrichment tests.unit.test_dummyjson_synthetic_orders
+.venv/bin/python -m unittest tests.unit.test_dummyjson_extractor tests.unit.test_dummyjson_enrichment tests.unit.test_dummyjson_synthetic_orders tests.unit.test_dummyjson_analytics
+```
+
+### 8. Build the analytics tables
+
+This reads the latest interim order dataset, computes the required `customer_analytics` and `order_analytics` tables with pandas, and writes them to `data/processed/`.
+
+```bash
+.venv/bin/python scripts/transform_dummyjson_analytics.py --source auto --as-of-date 2026-04-03
 ```
 
 ## Extraction Usage
@@ -194,6 +207,36 @@ Run it with:
 .venv/bin/python scripts/generate_dummyjson_synthetic_orders.py --target-rows 10000
 ```
 
+## Analytics Transformation
+
+The analytics transformation step builds two processed tables:
+
+- `customer_analytics`
+- `order_analytics`
+
+Implemented customer logic:
+
+- `full_name` from the customer profile in the order dataset
+- lowercase email standardization and `email_domain` extraction
+- `customer_tenure_days` from the selected as-of date minus `signup_date`
+- `total_orders`, `total_spent`, and `avg_order_value` from order-level metrics
+- `lifetime_value_score` from weighted normalized spend, order count, and average order value
+- `customer_segment` as `High`, `Medium`, or `Low`
+
+Implemented order logic:
+
+- `order_date` and `order_hour` extracted from `order_timestamp`
+- `gross_amount`, `total_discount_amount`, `net_amount`, and `final_amount`
+- `discount_ratio` as `total_discount_amount / gross_amount`
+- `order_complexity_score` as `(unique_products * 2) + total_items`
+- `dominant_category` from the highest gross category contribution in the order
+
+Run it with:
+
+```bash
+.venv/bin/python scripts/transform_dummyjson_analytics.py --source auto --as-of-date 2026-04-03
+```
+
 ## Current Workflow
 
 For the current stage of the project, the normal command order is:
@@ -202,6 +245,7 @@ For the current stage of the project, the normal command order is:
 .venv/bin/python scripts/extract_dummyjson.py
 .venv/bin/python scripts/enrich_dummyjson_orders.py
 .venv/bin/python scripts/generate_dummyjson_synthetic_orders.py --target-rows 10000
+.venv/bin/python scripts/transform_dummyjson_analytics.py --source auto --as-of-date 2026-04-03
 ```
 
 This means:
@@ -210,3 +254,4 @@ This means:
 - the raw API snapshots remain unchanged in `data/raw/`
 - the pandas transform creates the enriched working dataset separately in `data/interim/orders/`
 - the synthetic generation stage creates the larger 10,000-row dataset separately in `data/interim/orders/`
+- the analytics transformation stage writes the processed `customer_analytics` and `order_analytics` tables to `data/processed/`
