@@ -18,7 +18,13 @@ This `README.md` will be updated periodically as the project grows.
 
 ## Current Status
 
-At this stage, the repository contains a professional starter scaffold only. Business logic, Django settings implementation, ETL jobs, models, and tests will be added in later commits.
+The repository now includes the initial extraction layer for DummyJSON:
+
+- paginated extraction for `carts`, `users`, and `products`
+- retries with exponential backoff for transient API failures
+- raw JSON snapshot persistence under `data/raw/`
+- a small runner script for local extraction
+- pandas-based deterministic synthetic enrichment for `order_timestamp`, `signup_date`, `payment_details`, and `shipping_cost`
 
 ## Project Structure
 
@@ -39,18 +45,27 @@ At this stage, the repository contains a professional starter scaffold only. Bus
 │   └── architecture/
 ├── etl/
 │   ├── extractors/
+│   │   └── dummyjson.py
 │   ├── loaders/
 │   ├── orchestration/
+│   │   ├── enrich_dummyjson_orders.py
+│   │   └── extract_dummyjson.py
 │   ├── schemas/
 │   ├── transformers/
+│   │   └── dummyjson_enrichment.py
 │   └── utils/
 ├── logs/
 ├── requirements/
+│   └── base.txt
 ├── scripts/
+│   ├── enrich_dummyjson_orders.py
+│   └── extract_dummyjson.py
 └── tests/
     ├── fixtures/
     ├── integration/
     └── unit/
+        ├── test_dummyjson_enrichment.py
+        └── test_dummyjson_extractor.py
 ```
 
 ## Folder Overview
@@ -64,3 +79,103 @@ At this stage, the repository contains a professional starter scaffold only. Bus
 - `scripts/` is intended for helper commands such as local bootstrap and ETL runners.
 - `requirements/` will store dependency files as the project setup is finalized.
 - `logs/` is reserved for local ETL execution logs.
+
+## Installation Guide
+
+This project currently uses a local Python virtual environment and the dependency list in `requirements/base.txt`.
+
+### Prerequisites
+
+Make sure these are available on your machine:
+
+- `python3`
+- `python3-venv`
+- `pip`
+
+You can verify them with:
+
+```bash
+python3 --version
+python3 -m pip --version
+```
+
+### 1. Create the virtual environment
+
+From the project root, run:
+
+```bash
+python3 -m venv .venv
+```
+
+### 2. Install the project dependencies
+
+```bash
+.venv/bin/pip install --upgrade pip
+.venv/bin/pip install -r requirements/base.txt
+```
+
+### 3. Verify the pandas installation
+
+```bash
+.venv/bin/python - <<'PY'
+import pandas as pd
+print(pd.__version__)
+PY
+```
+
+### 4. Run the extractor
+
+This fetches fresh raw data every time you run it and stores timestamped snapshots in `data/raw/`.
+
+```bash
+.venv/bin/python scripts/extract_dummyjson.py
+```
+
+### 5. Run the pandas transformation step
+
+This reads the latest raw snapshots, applies the deterministic synthetic enrichment logic with pandas, and writes the output to `data/interim/orders/`.
+
+```bash
+.venv/bin/python scripts/enrich_dummyjson_orders.py
+```
+
+### 6. Run the current unit tests
+
+```bash
+.venv/bin/python -m unittest tests.unit.test_dummyjson_extractor tests.unit.test_dummyjson_enrichment
+```
+
+## Extraction Usage
+
+The extractor pulls:
+
+- `https://dummyjson.com/carts`
+- `https://dummyjson.com/users`
+- `https://dummyjson.com/products`
+
+Each resource is saved as a timestamped raw JSON snapshot inside its matching `data/raw/<resource>/` directory.
+
+## Enrichment Usage
+
+This transform step keeps the raw API response unchanged and adds synthetic fields in `data/interim/orders/`:
+
+- `order_timestamp`
+- `customer.signup_date`
+- `payment_details`
+- `shipping_cost`
+- all transformations are executed with pandas DataFrames before the final JSON snapshot is written
+
+## Current Workflow
+
+For the current stage of the project, the normal command order is:
+
+```bash
+.venv/bin/python scripts/extract_dummyjson.py
+.venv/bin/python scripts/enrich_dummyjson_orders.py
+```
+
+This means:
+
+- the raw DummyJSON source is fetched fresh on every extraction run
+- the raw API snapshots remain unchanged in `data/raw/`
+- the pandas transform creates the enriched working dataset separately in `data/interim/orders/`
