@@ -5,27 +5,16 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from config.loader import load_config
+
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 LOGS_DIR = BASE_DIR / "logs"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def load_env_file(path: Path) -> None:
-    """Load simple KEY=VALUE pairs from a local .env file if present."""
-    if not path.exists():
-        return
-
-    for line in path.read_text(encoding="utf-8").splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("#") or "=" not in stripped:
-            continue
-        key, value = stripped.split("=", 1)
-        normalized_value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(key.strip(), normalized_value)
-
-
-load_env_file(BASE_DIR / ".env")
+# Load configuration from config.yml
+load_config()
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-etl-dev-secret-key")
 DEBUG = os.getenv("DJANGO_DEBUG", "true").lower() == "true"

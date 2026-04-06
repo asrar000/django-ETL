@@ -31,25 +31,29 @@ source .venv/bin/activate
 
 # 2. Install dependencies
 pip install --upgrade pip
-pip install -r requirements/base.txt
+pip install -r requirements.txt
 
-# 3. Start PostgreSQL in Docker (runs in background)
+# 3. Configure the project
+cp config/config.yml.example config/config.yml
+# Edit config/config.yml if needed
+
+# 4. Start PostgreSQL in Docker (runs in background)
 docker compose up -d postgres
 
-# 4. Setup Django and run migrations
+# 5. Setup Django and run migrations
 export DJANGO_SETTINGS_MODULE=config.settings.base
 python manage.py migrate
 
-# 5. Run the ETL pipeline (all steps sequentially)
+# 6. Run the ETL pipeline (all steps sequentially)
 python scripts/extract_dummyjson.py
 python scripts/enrich_dummyjson_orders.py
 python scripts/generate_dummyjson_synthetic_orders.py --target-rows 10000
 python scripts/transform_dummyjson_analytics.py --source auto --as-of-date 2026-04-03
 
-# 6. Load analytics data into PostgreSQL via Django ORM
+# 7. Load analytics data into PostgreSQL via Django ORM
 python manage.py load_dummyjson_analytics --source auto --as-of-date 2026-04-03
 
-# 7. Verify data loaded
+# 8. Verify data loaded
 docker compose exec postgres psql -U django_etl -d django_etl -c "SELECT COUNT(*) FROM customer_analytics; SELECT COUNT(*) FROM order_analytics;"
 ```
 
@@ -147,10 +151,21 @@ source .venv/bin/activate
 
 ```bash
 pip install --upgrade pip
-pip install -r requirements/base.txt
+pip install -r requirements.txt
 ```
 
-### Step 3: Start PostgreSQL in Docker
+### Step 3: Configure the project
+
+Copy the example configuration and adjust as needed:
+
+```bash
+cp config/config.yml.example config/config.yml
+# Edit config/config.yml with your settings
+```
+
+The configuration loader automatically loads environment variables from `config/config.yml`.
+
+### Step 4: Start PostgreSQL in Docker
 
 ```bash
 docker compose up -d postgres
@@ -163,13 +178,13 @@ docker compose ps
 # Wait until STATUS shows "healthy" (healthcheck passes)
 ```
 
-### Step 4: Setup Django database
+### Step 4: Configure the project
 
-Set the Django settings module and apply migrations:
+Copy the example configuration and adjust as needed:
 
 ```bash
-export DJANGO_SETTINGS_MODULE=config.settings.base
-python manage.py migrate
+cp config/config.yml.example config/config.yml
+# Edit config/config.yml with your settings
 ```
 
 Verify the connection:

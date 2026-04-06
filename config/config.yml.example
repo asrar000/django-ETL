@@ -1,0 +1,13 @@
+django:
+  secret_key: your-secret-key-here
+  debug: true
+  allowed_hosts: "127.0.0.1,localhost"
+  log_level: INFO
+
+postgres:
+  db: django_etl
+  user: django_etl
+  password: your-password-here
+  host: 127.0.0.1
+  port: 5432
+  conn_max_age: 60
